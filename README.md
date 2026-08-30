@@ -61,28 +61,45 @@ PostgreSQL Database
 ## Prerequisites
 
 ### Required
-- **Node.js** 16+ ([Download](https://nodejs.org/))
+- **Node.js** 18 LTS or 20 LTS ([Download](https://nodejs.org/)) 
+  - Recommended: Node 20 LTS (latest stable)
+  - Minimum: Node 18 LTS
+  - Check LTS schedule: [nodejs.org/en/about/releases/](https://nodejs.org/en/about/releases/)
 - **PostgreSQL** 12+ ([Download](https://www.postgresql.org/download/))
-- **npm** or **yarn** (comes with Node.js)
+- **npm** 9+ or **yarn** 3+ (comes with Node.js)
 - **Git** ([Download](https://git-scm.com/))
 
 ### Optional
-- **Docker** (for database setup)
+- **Docker** & **Docker Compose** (for database setup)
 - **Postman** or **Thunder Client** (for API testing)
 - **Visual Studio Code** or **JetBrains IDEs**
+- **nvm** (Node Version Manager) - for managing Node.js versions
 
 ### Verify Installation
 
 ```bash
-# Check Node.js version (should be 16+)
+# Check Node.js version (should be 18+ LTS or higher)
 node --version
 
-# Check npm version (should be 7+)
+# Check npm version (should be 9+)
 npm --version
 
 # Check PostgreSQL version (should be 12+)
 psql --version
+
+# Optional: Check if NVM is installed
+nvm --version
 ```
+
+### Node.js LTS Information
+
+| Version | Type  | Start      | End        | Status    |
+|---------|-------|-----------|-----------|-----------|
+| 20.x    | LTS   | 2023-10   | 2026-04   | **Current** ✅ |
+| 18.x    | LTS   | 2022-10   | 2025-04   | Supported  |
+| 16.x    | LTS   | 2021-10   | 2024-09   | EOL        |
+
+**Recommendation:** Use Node 20 LTS for new installations.
 
 ## Installation
 
@@ -93,7 +110,28 @@ git clone https://github.com/teemulin/run.git
 cd run
 ```
 
-### 2. Database Setup
+### 2. (Optional) Install Node.js with NVM
+
+If you have multiple Node.js versions, use NVM:
+
+```bash
+# Install NVM (if not already installed)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+
+# Reload shell
+source ~/.bashrc
+
+# Install Node 20 LTS
+nvm install 20
+
+# Use Node 20
+nvm use 20
+
+# Verify
+node --version  # Should show v20.x.x
+```
+
+### 3. Database Setup
 
 #### Option A: Using PostgreSQL Directly
 
@@ -140,7 +178,52 @@ psql -h localhost -U run_user -d run_db -f backend/src/database/schema.sql
 psql -h localhost -U run_user -d run_db -f backend/src/database/seeds.sql
 ```
 
-### 3. Backend Setup
+#### Option C: Using Docker Compose (Best for Development)
+
+Create `docker-compose.yml` in project root:
+
+```yaml
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:14-alpine
+    container_name: run-postgres
+    environment:
+      POSTGRES_DB: run_db
+      POSTGRES_USER: run_user
+      POSTGRES_PASSWORD: your_secure_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U run_user -d run_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+```
+
+Then run:
+
+```bash
+# Start PostgreSQL
+docker-compose up -d
+
+# Wait for database to be ready
+docker-compose exec postgres pg_isready -U run_user -d run_db
+
+# Apply schema
+psql -h localhost -U run_user -d run_db -f backend/src/database/schema.sql
+
+# Seed data
+psql -h localhost -U run_user -d run_db -f backend/src/database/seeds.sql
+```
+
+### 4. Backend Setup
 
 ```bash
 # Navigate to backend directory
@@ -163,7 +246,7 @@ EOF
 cat .env
 ```
 
-### 4. Frontend Setup
+### 5. Frontend Setup
 
 ```bash
 # Navigate to frontend directory
@@ -448,6 +531,22 @@ See [API.md](docs/API.md) for complete API reference.
 
 ## Troubleshooting
 
+### Node.js Version Issues
+
+**Error:** `npm ERR! The engine "node" is incompatible`
+
+```bash
+# Check current Node version
+node --version
+
+# Update Node.js to LTS version
+# Using NVM:
+nvm install 20
+nvm use 20
+
+# Or download from: https://nodejs.org/
+```
+
 ### Database Connection Issues
 
 **Error:** `ECONNREFUSED 127.0.0.1:5432`
@@ -461,6 +560,9 @@ docker ps | grep postgres
 
 # Start Docker container if stopped:
 docker start run-postgres
+
+# If using Docker Compose:
+docker-compose up -d
 ```
 
 ### Port Already in Use
@@ -481,6 +583,7 @@ PORT=3001 npm run dev
 ```bash
 # Clear cache and reinstall
 rm -rf node_modules package-lock.json
+npm cache clean --force
 npm install
 ```
 
@@ -560,6 +663,7 @@ run/
 │   ├── MVP_COMPLETE.md             # MVP summary
 │   └── API.md                       # API documentation
 │
+├── docker-compose.yml              # Docker setup (optional)
 ├── README.md                        # This file
 └── .gitignore
 ```
@@ -613,18 +717,19 @@ For issues, questions, or suggestions:
 ## Quick Start Recap
 
 ```bash
-# 1. Clone
+# 1. Clone and setup Node 20 LTS
 git clone https://github.com/teemulin/run.git && cd run
+nvm install 20 && nvm use 20
 
-# 2. Database (Docker)
-docker run --name run-postgres -e POSTGRES_DB=run_db -e POSTGRES_USER=run_user -e POSTGRES_PASSWORD=password -p 5432:5432 -d postgres:14
-sleep 10
+# 2. Database (Docker Compose - Recommended)
+docker-compose up -d
+sleep 5
 psql -h localhost -U run_user -d run_db -f backend/src/database/schema.sql
 psql -h localhost -U run_user -d run_db -f backend/src/database/seeds.sql
 
 # 3. Backend
 cd backend && npm install
-echo "DATABASE_URL=postgresql://run_user:password@localhost:5432/run_db" > .env
+echo "DATABASE_URL=postgresql://run_user:your_secure_password@localhost:5432/run_db" > .env
 echo "JWT_SECRET=dev_secret" >> .env
 npm run dev
 
@@ -640,4 +745,4 @@ npm run dev
 
 Made with ❤️ by Teemu Lindberg
 
-Last updated: 2026-08-29
+Last updated: 2026-08-30
